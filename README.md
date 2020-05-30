@@ -1,4 +1,4 @@
-# Just main production of Nand2tettis
+# Just main production of Nand2tetris
 
 ## section 5
 create a kind of CPU by hardware programming language
