@@ -1,4 +1,6 @@
 # Just main production of Nand2tetris
+コンピュータシステムの理論と実装
+――モダンなコンピュータの作り方
 
 ## section 5
 create a kind of CPU by hardware programming language
