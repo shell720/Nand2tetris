@@ -31,7 +31,7 @@ func main() {
 	//コメントは削除する
 	var t *Token
 	t = strToToken(b)
-	fmt.Println(t)
+	fmt.Println(t.word)
 
 }
 
@@ -40,8 +40,8 @@ func strToToken(b []byte) *Token {
 	l := len(b)
 	symbol := []string{"{", "}", "(", ")", "[", "]", ".", ",",
 		";", "+", "-", "*", "/", "&", "|", "<", ">", "=", "~"}
-	var head Token
-	var cur *Token
+	var head Token // 開始を表すノードにしたいが返り値の調整のため次のcurが開始ノード
+	cur := new(Token)
 	head.next = cur
 	for i := 0; i < l; {
 		switch {
@@ -79,9 +79,10 @@ func strToToken(b []byte) *Token {
 
 		case search(symbol, string(b[i])):
 			//fmt.Println(string(b[i]))
-			i++
 			s := string(b[i])
 			cur = tokenConnect(cur, s)
+			i++
+			fmt.Println(cur.word)
 
 		case b[i] == 34: //ダブルクォートの文字列
 			startIdx := i
@@ -95,6 +96,7 @@ func strToToken(b []byte) *Token {
 			//fmt.Println(string(b[startIdx:i]))
 			s := string(b[startIdx:i])
 			cur = tokenConnect(cur, s)
+			//fmt.Println(cur.word)
 
 		default:
 			startIdx := i
@@ -107,22 +109,18 @@ func strToToken(b []byte) *Token {
 				}
 			}
 			//fmt.Println(string(b[startIdx:i]))
-			fmt.Println("OK")
 			s := string(b[startIdx:i])
 			cur = tokenConnect(cur, s)
-			fmt.Println(cur.next)
+			//fmt.Println(cur.word)
 		}
 	}
-	return head.next
+	return head.next.next
 }
 
 //tokenConnect　トークンを繋ぐ
 func tokenConnect(cur *Token, s string) *Token {
-	next := new(Token)
-	next.word = s
-	fmt.Println("OK3")
+	next := &Token{word: s}
 	cur.next = next
-	fmt.Println("OK4")
 	return next
 }
 
