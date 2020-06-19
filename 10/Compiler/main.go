@@ -6,9 +6,10 @@ import (
 	"os"
 )
 
-type token struct {
+//Token そのトークンのワードと次へのポインタを所持する
+type Token struct {
 	word string
-	next *token
+	next *Token
 }
 
 func main() {
@@ -26,15 +27,117 @@ func main() {
 	b, err := ioutil.ReadAll(f) // bをfor rangeでstring変換すると1文字ずつ取得できる
 	ErrOutput(err)
 
-	for i, word := range b {
-		fmt.Print(string(word))
-		if string(word) == "\n" {
-			fmt.Printf("%d番目は改行です", i)
-		}
-	}
+	//文字列を分割してトークンに
+	//コメントは削除する
+	var t *Token
+	t = strToToken(b)
+	fmt.Println(t)
 
 }
 
+//strToToken トークン処理
+func strToToken(b []byte) *Token {
+	l := len(b)
+	symbol := []string{"{", "}", "(", ")", "[", "]", ".", ",",
+		";", "+", "-", "*", "/", "&", "|", "<", ">", "=", "~"}
+	var head Token
+	var cur *Token
+	head.next = cur
+	for i := 0; i < l; {
+		switch {
+		case string(b[i:i+2]) == "//": //コメントアウト処理1
+			for {
+				i++
+				if string(b[i]) == "\n" {
+					break
+				}
+			}
+			i++
+			continue
+
+		case string(b[i:i+2]) == "/*": //コメントアウト処理2
+			for {
+				i++
+				if string(b[i:i+2]) == "*/" {
+					break
+				}
+			}
+			i += 2
+			continue
+
+		case string(b[i]) == " " || string(b[i]) == "\n": //改行または空白
+			i++
+			continue
+
+		case b[i] == 13:
+			i++
+			continue
+
+		case b[i] == 9: //タブコード
+			i++
+			continue
+
+		case search(symbol, string(b[i])):
+			//fmt.Println(string(b[i]))
+			i++
+			s := string(b[i])
+			cur = tokenConnect(cur, s)
+
+		case b[i] == 34: //ダブルクォートの文字列
+			startIdx := i
+			for {
+				i++
+				if b[i] == 34 {
+					i++
+					break
+				}
+			}
+			//fmt.Println(string(b[startIdx:i]))
+			s := string(b[startIdx:i])
+			cur = tokenConnect(cur, s)
+
+		default:
+			startIdx := i
+			for {
+				i++
+				if string(b[i]) == " " || string(b[i]) == "\n" {
+					break
+				} else if search(symbol, string(b[i])) { //symbolで区切る
+					break
+				}
+			}
+			//fmt.Println(string(b[startIdx:i]))
+			fmt.Println("OK")
+			s := string(b[startIdx:i])
+			cur = tokenConnect(cur, s)
+			fmt.Println(cur.next)
+		}
+	}
+	return head.next
+}
+
+//tokenConnect　トークンを繋ぐ
+func tokenConnect(cur *Token, s string) *Token {
+	next := new(Token)
+	next.word = s
+	fmt.Println("OK3")
+	cur.next = next
+	fmt.Println("OK4")
+	return next
+}
+
+//search: charで与えられた文字がarrayの要素かどうか調べる
+func search(array []string, char string) bool {
+	check := false
+	for _, e := range array {
+		if e == char {
+			check = true
+		}
+	}
+	return check
+}
+
+//ErrOutput エラー検出＆出力
 func ErrOutput(e error) {
 	if e != nil {
 		panic(e)
