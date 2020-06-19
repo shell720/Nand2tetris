@@ -17,4 +17,4 @@ create program of VM language(Intermediate code) to assembly by Python3
 
 ## section 10
 creating program of compiler by go  
-***goによるコンパイラの作成中
+***goによるコンパイラの作成中 トークナイザーまで完成  
