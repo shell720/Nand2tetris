@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"path/filepath"
+	"strconv"
 )
 
 //Token そのトークンのワードと次へのポインタを所持する
@@ -12,34 +14,98 @@ type Token struct {
 	next *Token
 }
 
+//予約語
+var symbol = []string{"{", "}", "(", ")", "[", "]", ".", ",",
+	";", "+", "-", "*", "/", "&", "|", "<", ">", "=", "~"}
+var keyword = []string{"class", "constructor", "function", "method",
+	"field", "static", "var", "int", "char", "boolean", "void", "true",
+	"false", "null", "this", "let", "do", "if", "else", "while", "return"}
+
 func main() {
 	argv := os.Args
 	argc := len(argv)
 	if argc != 2 {
 		fmt.Println("Error: argument number")
 	}
-	//引数がファイルかディレクトリか
+	//引数がファイルかディレクトリか場合わけ
+	//ディレクトリとファイルの切り分けも
+	finfo, _ := os.Stat(argv[1])
+	if finfo.IsDir() {
+		files, _ := ioutil.ReadDir(argv[1])
+		for _, f := range files {
+			if filepath.Ext(f.Name()) == ".jack" {
+				Tokenizer(argv[1] + f.Name())
+			}
+		}
+	} else {
+		Tokenizer(argv[1])
+	}
+}
 
-	f, err := os.Open(argv[1])
+//Tokenizer ファイルを開いて字句解析
+func Tokenizer(fpath string) {
+	//ファイルを開く
+	f, err := os.Open(fpath)
 	ErrOutput(err)
 	defer f.Close()
 
 	b, err := ioutil.ReadAll(f) // bをfor rangeでstring変換すると1文字ずつ取得できる
 	ErrOutput(err)
 
-	//文字列を分割してトークンに
-	//コメントは削除する
+	//文字列を字句解析
 	var t *Token
-	t = strToToken(b)
-	fmt.Println(t.word)
+	t = strToToken(b) //t.wordにはclassが入る、終了はt.next　== nil
+	xmloutput := "<tokens>\n"
+	for {
+		tkind := tokenKind(t)
+		xmloutput += "<" + tkind + "> "
+		xmloutput += outputTerminal(t.word)
+		xmloutput += " </" + tkind + ">\n"
+		if t.next == nil {
+			break
+		} else {
+			t = t.next
+		}
+	}
+	xmloutput += "</tokens>\n"
 
+	//ファイル出力のための下準備
+	var pwd string
+	var fname string
+	pwd, fname = filepath.Split(fpath)
+	fname = filename(fname)
+	//xmlファイルに出力
+	file, _ := os.Create(pwd + fname + "Tj.xml")
+	defer file.Close()
+
+	file.Write(([]byte)(xmloutput))
 }
 
-//strToToken トークン処理
+//tokenKind: トークンの種類を返す
+func tokenKind(t *Token) string {
+	var kind string
+	_, err := strconv.Atoi(t.word)
+	doubleQuote := "\""
+	byteDQ := []byte(doubleQuote)
+	switch {
+	case search(keyword, t.word):
+		kind = "keyword"
+	case search(symbol, t.word):
+		kind = "symbol"
+	case t.word[0] == byteDQ[0]:
+		kind = "stringConstant"
+	case err == nil:
+		kind = "integerConstant"
+	default:
+		kind = "identifier"
+	}
+	return kind
+}
+
+//strToToken 文字列を分割して終端文字に
+//コメント削除、空白スペースを手がかりに分ける、symbolが現れても分ける
 func strToToken(b []byte) *Token {
 	l := len(b)
-	symbol := []string{"{", "}", "(", ")", "[", "]", ".", ",",
-		";", "+", "-", "*", "/", "&", "|", "<", ">", "=", "~"}
 	var head Token // 開始を表すノードにしたいが返り値の調整のため次のcurが開始ノード
 	cur := new(Token)
 	head.next = cur
@@ -82,9 +148,9 @@ func strToToken(b []byte) *Token {
 			s := string(b[i])
 			cur = tokenConnect(cur, s)
 			i++
-			fmt.Println(cur.word)
+			//fmt.Println(cur.word)
 
-		case b[i] == 34: //ダブルクォートの文字列
+		case b[i] == 34: //ダブルクォートで始まる文字列を処理
 			startIdx := i
 			for {
 				i++
@@ -133,6 +199,36 @@ func search(array []string, char string) bool {
 		}
 	}
 	return check
+}
+
+//outputTerminal: 終端文字の細かい変化
+func outputTerminal(s string) string {
+	var t string
+	if s[0] == 34 {
+		t = s[1 : len(s)-1]
+	} else if s == "<" {
+		t = "&lt;"
+	} else if s == ">" {
+		t = "&gt;"
+	} else if s == "&" {
+		t = "&amp;"
+	} else {
+		t = s
+	}
+	return t
+}
+
+//filename: 拡張子なしのファイル名を返す
+func filename(f string) string {
+	var end int
+	dot := "."
+	bytedot := []byte(dot)
+	for i := 0; i < len(f); i++ {
+		if f[i] == bytedot[0] {
+			end = i
+		}
+	}
+	return f[:end]
 }
 
 //ErrOutput エラー検出＆出力
