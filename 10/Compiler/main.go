@@ -8,10 +8,11 @@ import (
 	"strconv"
 )
 
-//Token そのトークンのワードと次へのポインタを所持する
+//Token そのトークンのワードと次へのポインタ、そのトークンの種類を所持する
 type Token struct {
-	word string
-	next *Token
+	word  string
+	next  *Token
+	tkind string
 }
 
 //予約語
@@ -53,14 +54,14 @@ func Tokenizer(fpath string) {
 	ErrOutput(err)
 
 	//文字列を字句解析
-	var t *Token
-	t = strToToken(b) //t.wordにはclassが入る、終了はt.next　== nil
+	head := strToToken(b) //headに開始トークン
 	xmloutput := "<tokens>\n"
-	for {
-		tkind := tokenKind(t)
-		xmloutput += "<" + tkind + "> "
-		xmloutput += outputTerminal(t.word)
-		xmloutput += " </" + tkind + ">\n"
+	var t *Token = head //終了はt.next　== nil
+	for {               //ここら辺を書き換える
+		tokenKind(t)
+		//xmloutput += "<" + t.tkind + "> "
+		//xmloutput += outputTerminal(t.word)
+		//xmloutput += " </" + t.tkind + ">\n"
 		if t.next == nil {
 			break
 		} else {
@@ -68,21 +69,24 @@ func Tokenizer(fpath string) {
 		}
 	}
 	xmloutput += "</tokens>\n"
+	t = head
+	compilationEngine(&t) // Tokenは参照渡し
+	fmt.Println(t.word)
+	fmt.Println(head.word)
 
-	//ファイル出力のための下準備
-	var pwd string
-	var fname string
-	pwd, fname = filepath.Split(fpath)
-	fname = filename(fname)
-	//xmlファイルに出力
-	file, _ := os.Create(pwd + fname + "Tj.xml")
-	defer file.Close()
-
-	file.Write(([]byte)(xmloutput))
+	writeXML(fpath, xmloutput)
 }
 
-//tokenKind: トークンの種類を返す
-func tokenKind(t *Token) string {
+func compilationEngine(t **Token) {
+	if (*t).word == "if" {
+		*t = (*t).next
+		*t = (*t).next
+	}
+	fmt.Println((*t).word)
+}
+
+//tokenKind: トークンの種類を決定する
+func tokenKind(t *Token) {
 	var kind string
 	_, err := strconv.Atoi(t.word)
 	doubleQuote := "\""
@@ -99,7 +103,7 @@ func tokenKind(t *Token) string {
 	default:
 		kind = "identifier"
 	}
-	return kind
+	t.tkind = kind
 }
 
 //strToToken 文字列を分割して終端文字に
@@ -229,6 +233,19 @@ func filename(f string) string {
 		}
 	}
 	return f[:end]
+}
+
+func writeXML(fpath string, output string) {
+	//ファイル出力のための下準備
+	var pwd string
+	var fname string
+	pwd, fname = filepath.Split(fpath)
+	fname = filename(fname)
+	//xmlファイルに出力
+	file, _ := os.Create(pwd + fname + "j.xml")
+	defer file.Close()
+
+	//file.Write(([]byte)(output))
 }
 
 //ErrOutput エラー検出＆出力
