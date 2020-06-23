@@ -55,55 +55,196 @@ func Tokenizer(fpath string) {
 
 	//文字列を字句解析
 	head := strToToken(b) //headに開始トークン
-	xmloutput := "<tokens>\n"
-	var t *Token = head //終了はt.next　== nil
-	for {               //ここら辺を書き換える
-		tokenKind(t)
-		//xmloutput += "<" + t.tkind + "> "
-		//xmloutput += outputTerminal(t.word)
-		//xmloutput += " </" + t.tkind + ">\n"
+	var xmloutput string
+	tokenKind(head, &xmloutput)
+	fmt.Println(xmloutput)
+
+	//パース部分
+	t := head
+	compilationEngine(t) // Tokenは参照渡し
+
+	writeXML(fpath, false, xmloutput)
+}
+
+func compilationEngine(t *Token) { //(*t)でTokenへアクセス
+	var f string
+	if t.word == "class" {
+		compileClass(&t, &f)
+	} else {
+		fmt.Println("Error: Not start with class")
+	}
+
+	if t.next != nil {
+		fmt.Println("Error: Not finish code")
+	}
+
+	fmt.Println(f)
+}
+
+func compileClass(t **Token, file *string) {
+	*file += "<" + "class" + ">\n"
+	for {
+		if (*t).word == "static" || (*t).word == "field" {
+			compileClassVarDec(t, file) //classVarDecのラストで返す
+		} else if (*t).word == "constructor" || (*t).word == "function" || (*t).word == "method" {
+			compileSubroutine(t, file) //subroutineDecのラストで返す
+		} else if (*t).word == "}" {
+			markup(*t, file)
+			*file += "</" + "class" + ">\n"
+			break
+		}
+		markup(*t, file)
+		(*t) = (*t).next
+	}
+}
+func compileClassVarDec(t **Token, file *string) {
+	*file += "<" + "classVarDec" + ">\n"
+	for {
+		if (*t).word == ";" {
+			markup(*t, file)
+			*file += "</" + "classVarDec" + ">\n"
+			break
+		}
+		markup(*t, file)
+		(*t) = (*t).next
+	}
+}
+func compileSubroutine(t **Token, file *string) {
+	*file += "<" + "subroutineDec" + ">\n"
+	for {
+		if (*t).word == "(" {
+			markup(*t, file)
+			(*t) = (*t).next
+			compileParameterList(t, file)
+		} else if (*t).word == "{" {
+			*file += "<" + "subroutineBody" + ">\n"
+			markup(*t, file)
+			(*t) = (*t).next
+			if (*t).word == "var" { //もしvarDecがない
+				compileVarDec(t, file)
+			}
+			if (*t).word == "}" { // もしstatementが０個
+				*file += "<" + "statements" + ">\n"
+				*file += "</" + "statements" + ">\n"
+				continue
+			}
+			compileStatements(t, file)
+		} else if (*t).word == "}" {
+			markup(*t, file)
+			*file += "</" + "subroutineBody" + ">\n"
+			*file += "</" + "subroutineDec" + ">\n"
+			break
+		}
+		markup(*t, file)
+		(*t) = (*t).next
+	}
+}
+func compileParameterList(t **Token, file *string) {
+	*file += "<" + "parameterList" + ">\n"
+	for {
+		if (*t).word == ")" {
+			*file += "</" + "parameterList" + ">\n"
+			break
+		}
+		markup(*t, file)
+		(*t) = (*t).next
+	}
+}
+func compileVarDec(t **Token, file *string) {
+	*file += "<" + "varDec" + ">\n"
+	for {
+		if (*t).word == ";" {
+			markup(*t, file)
+			*file += "</" + "varDec" + ">\n"
+			(*t) = (*t).next
+			break
+		}
+		markup(*t, file)
+		(*t) = (*t).next
+	}
+}
+func compileStatements(t **Token, file *string) {
+	*file += "<" + "statements" + ">\n"
+	for {
+		if (*t).word == "let" {
+			compileLet(t, file)
+		} else if (*t).word == "if" {
+
+		} else if (*t).word == "while" {
+
+		} else if (*t).word == "do" {
+			compileDo(t, file)
+		} else if (*t).word == "return" {
+			compileReturn(t, file)
+		} else if (*t).word == "}" {
+			*file += "</" + "statements" + ">\n"
+			break
+		}
+	}
+}
+func compileDo(t **Token, file *string) {
+	*file += "<" + "doStatement" + ">\n"
+
+}
+func compileLet(t **Token, file *string) {
+
+}
+func compileWhile(t **Token, file *string) {
+
+}
+func compileReturn(t **Token, file *string) {
+
+}
+func compileIf(t **Token, file *string) {
+
+}
+func compileExpression(t **Token, file *string) {
+
+}
+func compileTerm(t **Token, file *string) {
+
+}
+func compileExpressionList(t **Token, file *string) {
+
+}
+
+//tokenKind: トークンの種類を決定する　(&トークン結果を書き込む)
+func tokenKind(t *Token, file *string) {
+	*file += "<tokens>\n"
+	for { //終了はt.next　== nil
+		var kind string
+		_, err := strconv.Atoi(t.word)
+		doubleQuote := "\""
+		byteDQ := []byte(doubleQuote)
+		switch {
+		case search(keyword, t.word):
+			kind = "keyword"
+		case search(symbol, t.word):
+			kind = "symbol"
+		case t.word[0] == byteDQ[0]:
+			kind = "stringConstant"
+		case err == nil:
+			kind = "integerConstant"
+		default:
+			kind = "identifier"
+		}
+		t.tkind = kind
+
+		markup(t, file)
+
 		if t.next == nil {
 			break
 		} else {
 			t = t.next
 		}
 	}
-	xmloutput += "</tokens>\n"
-	t = head
-	compilationEngine(&t) // Tokenは参照渡し
-	fmt.Println(t.word)
-	fmt.Println(head.word)
-
-	writeXML(fpath, xmloutput)
+	*file += "</tokens>\n"
 }
 
-func compilationEngine(t **Token) {
-	if (*t).word == "if" {
-		*t = (*t).next
-		*t = (*t).next
-	}
-	fmt.Println((*t).word)
-}
-
-//tokenKind: トークンの種類を決定する
-func tokenKind(t *Token) {
-	var kind string
-	_, err := strconv.Atoi(t.word)
-	doubleQuote := "\""
-	byteDQ := []byte(doubleQuote)
-	switch {
-	case search(keyword, t.word):
-		kind = "keyword"
-	case search(symbol, t.word):
-		kind = "symbol"
-	case t.word[0] == byteDQ[0]:
-		kind = "stringConstant"
-	case err == nil:
-		kind = "integerConstant"
-	default:
-		kind = "identifier"
-	}
-	t.tkind = kind
+func markup(t *Token, file *string) {
+	*file += "<" + t.tkind + "> "
+	*file += outputTerminal(t.word)
+	*file += " </" + t.tkind + ">\n"
 }
 
 //strToToken 文字列を分割して終端文字に
@@ -235,17 +376,19 @@ func filename(f string) string {
 	return f[:end]
 }
 
-func writeXML(fpath string, output string) {
+func writeXML(fpath string, WritingIs bool, output string) {
 	//ファイル出力のための下準備
 	var pwd string
 	var fname string
 	pwd, fname = filepath.Split(fpath)
 	fname = filename(fname)
-	//xmlファイルに出力
-	file, _ := os.Create(pwd + fname + "j.xml")
-	defer file.Close()
 
-	//file.Write(([]byte)(output))
+	if WritingIs {
+		//xmlファイルに出力
+		file, _ := os.Create(pwd + fname + "j.xml")
+		defer file.Close()
+		file.Write(([]byte)(output))
+	}
 }
 
 //ErrOutput エラー検出＆出力
