@@ -61,12 +61,12 @@ func Tokenizer(fpath string) {
 
 	//パース部分
 	t := head
-	compilationEngine(t) // Tokenは参照渡し
+	resultcompile := compilationEngine(t) // Tokenは参照渡し
 
-	writeXML(fpath, false, xmloutput)
+	writeXML(fpath, true, resultcompile)
 }
 
-func compilationEngine(t *Token) { //(*t)でTokenへアクセス
+func compilationEngine(t *Token) string { //(*t)でTokenへアクセス
 	var f string
 	if t.word == "class" {
 		compileClass(&t, &f)
@@ -78,7 +78,8 @@ func compilationEngine(t *Token) { //(*t)でTokenへアクセス
 		fmt.Println("Error: Not finish code")
 	}
 
-	fmt.Println(f)
+	//fmt.Println(f)
+	return f
 }
 
 func compileClass(t **Token, file *string) {
@@ -86,8 +87,11 @@ func compileClass(t **Token, file *string) {
 	for {
 		if (*t).word == "static" || (*t).word == "field" {
 			compileClassVarDec(t, file) //classVarDecのラストで返す
+			(*t) = (*t).next
+			continue
 		} else if (*t).word == "constructor" || (*t).word == "function" || (*t).word == "method" {
 			compileSubroutine(t, file) //subroutineDecのラストで返す
+			(*t) = (*t).next
 			continue
 		} else if (*t).word == "}" {
 			markup(*t, file)
@@ -121,8 +125,12 @@ func compileSubroutine(t **Token, file *string) {
 			*file += "<" + "subroutineBody" + ">\n"
 			markup(*t, file)
 			(*t) = (*t).next
-			if (*t).word == "var" { //もしvarDecがない
-				compileVarDec(t, file)
+			for { //varのぶん
+				if (*t).word == "var" {
+					compileVarDec(t, file)
+				} else {
+					break
+				}
 			}
 			if (*t).word == "}" { // もしstatementが０個
 				*file += "<" + "statements" + ">\n"
@@ -214,7 +222,7 @@ func compileLet(t **Token, file *string) {
 		markup(*t, file)
 		(*t) = (*t).next
 	}
-	*file += "</" + "whileStatement" + ">\n"
+	*file += "</" + "letStatement" + ">\n"
 	(*t) = (*t).next
 
 }
@@ -225,7 +233,7 @@ func compileWhile(t **Token, file *string) {
 	markup(*t, file)
 	(*t) = (*t).next
 	compileExpression(t, file)
-	markup(*t, file)
+	markup(*t, file) //)
 	(*t) = (*t).next
 	markup(*t, file)
 	(*t) = (*t).next
@@ -246,17 +254,47 @@ func compileReturn(t **Token, file *string) {
 	(*t) = (*t).next
 }
 func compileIf(t **Token, file *string) {
+	*file += "<" + "ifStatement" + ">\n"
+	markup(*t, file)
+	(*t) = (*t).next
+	markup(*t, file)
+	(*t) = (*t).next
+	compileExpression(t, file)
+	markup(*t, file) // )
+	(*t) = (*t).next
+	markup(*t, file)
+	(*t) = (*t).next
+	compileStatements(t, file)
+	markup(*t, file)
+	(*t) = (*t).next
+	for {
+		if (*t).word == "else" {
+			markup(*t, file)
+			(*t) = (*t).next
+			markup(*t, file)
+			(*t) = (*t).next
+			compileStatements(t, file)
+			markup(*t, file)
+			(*t) = (*t).next
+			continue
+		} else {
+			break
+		}
+	}
+	*file += "</" + "ifStatement" + ">\n"
 
 }
 func compileExpression(t **Token, file *string) {
 	op := []string{"+", "-", "*", "/", "&", "|", "<", ">", "="}
 	*file += "<" + "expression" + ">\n"
-	compileTerm(t, file) //帰ってきた時にそのトークンがopなら続ける
+	compileTerm(t, file) //帰ってきた時に次のトークンがopなら続ける
+	(*t) = (*t).next
 	for {
 		if search(op, (*t).word) {
 			markup(*t, file)
 			(*t) = (*t).next
 			compileTerm(t, file)
+			(*t) = (*t).next
 		} else {
 			break
 		}
@@ -277,6 +315,8 @@ func compileTerm(t **Token, file *string) {
 			(*t) = (*t).next
 			compileExpression(t, file)
 			markup(*t, file)
+		} else {
+			markup(*t, file)
 		}
 	} else if (*t).word == "(" {
 		markup(*t, file)
@@ -286,27 +326,35 @@ func compileTerm(t **Token, file *string) {
 	} else if (*t).word == "-" || (*t).word == "~" {
 		markup(*t, file)
 		(*t) = (*t).next
-		compileExpression(t, file)
+		compileTerm(t, file)
 	} else {
 		markup(*t, file)
 	}
 	*file += "<" + "/term" + ">\n"
-	(*t) = (*t).next
 }
 func compileSubCall(t **Token, file *string) {
 	//expressionListが含まれる, )まで処理してそのノードを呼び出し元に返す
 	for {
 		if (*t).word == "(" {
+			markup(*t, file)
 			*file += "<" + "expressionList" + ">\n"
-			markup(*t, file)
+			*t = (*t).next
+			if (*t).word == ")" {
+				continue
+			}
+			compileExpression(t, file)
+			continue
 		} else if (*t).word == ")" {
-			markup(*t, file)
 			*file += "</" + "expressionList" + ">\n"
+			markup(*t, file)
 			break
-		} else if (*t).word == "." {
+		} else if (*t).word == "," {
 			markup(*t, file)
 			*t = (*t).next
 			compileExpression(t, file)
+			continue
+		} else {
+			markup(*t, file)
 		}
 		*t = (*t).next
 	}
