@@ -57,7 +57,7 @@ func Tokenizer(fpath string) {
 	head := strToToken(b) //headに開始トークン
 	var xmloutput string
 	tokenKind(head, &xmloutput)
-	fmt.Println(xmloutput)
+	//fmt.Println(xmloutput)
 
 	//パース部分
 	t := head
@@ -88,6 +88,7 @@ func compileClass(t **Token, file *string) {
 			compileClassVarDec(t, file) //classVarDecのラストで返す
 		} else if (*t).word == "constructor" || (*t).word == "function" || (*t).word == "method" {
 			compileSubroutine(t, file) //subroutineDecのラストで返す
+			continue
 		} else if (*t).word == "}" {
 			markup(*t, file)
 			*file += "</" + "class" + ">\n"
@@ -129,6 +130,7 @@ func compileSubroutine(t **Token, file *string) {
 				continue
 			}
 			compileStatements(t, file)
+			continue
 		} else if (*t).word == "}" {
 			markup(*t, file)
 			*file += "</" + "subroutineBody" + ">\n"
@@ -140,6 +142,7 @@ func compileSubroutine(t **Token, file *string) {
 	}
 }
 func compileParameterList(t **Token, file *string) {
+	//()中のみ処理
 	*file += "<" + "parameterList" + ">\n"
 	for {
 		if (*t).word == ")" {
@@ -165,13 +168,13 @@ func compileVarDec(t **Token, file *string) {
 }
 func compileStatements(t **Token, file *string) {
 	*file += "<" + "statements" + ">\n"
-	for {
+	for { //再帰から戻ってくる時はそれぞれのステートメントの末尾の次のトークンで帰ってくること
 		if (*t).word == "let" {
 			compileLet(t, file)
 		} else if (*t).word == "if" {
-
+			compileIf(t, file)
 		} else if (*t).word == "while" {
-
+			compileWhile(t, file)
 		} else if (*t).word == "do" {
 			compileDo(t, file)
 		} else if (*t).word == "return" {
@@ -184,28 +187,129 @@ func compileStatements(t **Token, file *string) {
 }
 func compileDo(t **Token, file *string) {
 	*file += "<" + "doStatement" + ">\n"
+	markup(*t, file)
+	*t = (*t).next
+	compileSubCall(t, file)
+	*t = (*t).next
+	markup(*t, file)
+	*file += "</" + "doStatement" + ">\n"
+	*t = (*t).next
 
 }
 func compileLet(t **Token, file *string) {
+	*file += "<" + "letStatement" + ">\n"
+	for {
+		if (*t).word == "[" {
+			markup(*t, file)
+			(*t) = (*t).next
+			compileExpression(t, file)
+		} else if (*t).word == "=" {
+			markup(*t, file)
+			(*t) = (*t).next
+			compileExpression(t, file)
+			markup(*t, file)
+			break
+		}
+
+		markup(*t, file)
+		(*t) = (*t).next
+	}
+	*file += "</" + "whileStatement" + ">\n"
+	(*t) = (*t).next
 
 }
 func compileWhile(t **Token, file *string) {
-
+	*file += "<" + "whileStatement" + ">\n"
+	markup(*t, file)
+	(*t) = (*t).next
+	markup(*t, file)
+	(*t) = (*t).next
+	compileExpression(t, file)
+	markup(*t, file)
+	(*t) = (*t).next
+	markup(*t, file)
+	(*t) = (*t).next
+	compileStatements(t, file)
+	markup(*t, file)
+	*file += "</" + "whileStatement" + ">\n"
+	(*t) = (*t).next
 }
 func compileReturn(t **Token, file *string) {
-
+	*file += "<" + "returnStatement" + ">\n"
+	markup(*t, file)
+	(*t) = (*t).next
+	if (*t).word != ";" {
+		compileExpression(t, file)
+	}
+	markup(*t, file)
+	*file += "</" + "returnStatement" + ">\n"
+	(*t) = (*t).next
 }
 func compileIf(t **Token, file *string) {
 
 }
 func compileExpression(t **Token, file *string) {
-
+	op := []string{"+", "-", "*", "/", "&", "|", "<", ">", "="}
+	*file += "<" + "expression" + ">\n"
+	compileTerm(t, file) //帰ってきた時にそのトークンがopなら続ける
+	for {
+		if search(op, (*t).word) {
+			markup(*t, file)
+			(*t) = (*t).next
+			compileTerm(t, file)
+		} else {
+			break
+		}
+	}
+	*file += "</" + "expression" + ">\n"
 }
 func compileTerm(t **Token, file *string) {
-
+	*file += "<" + "term" + ">\n"
+	if (*t).tkind == "identifier" {
+		if ((*t).next).word == "(" {
+			compileSubCall(t, file)
+		} else if ((*t).next).word == "." {
+			compileSubCall(t, file)
+		} else if ((*t).next).word == "[" {
+			markup(*t, file)
+			(*t) = (*t).next
+			markup(*t, file)
+			(*t) = (*t).next
+			compileExpression(t, file)
+			markup(*t, file)
+		}
+	} else if (*t).word == "(" {
+		markup(*t, file)
+		(*t) = (*t).next
+		compileExpression(t, file)
+		markup(*t, file)
+	} else if (*t).word == "-" || (*t).word == "~" {
+		markup(*t, file)
+		(*t) = (*t).next
+		compileExpression(t, file)
+	} else {
+		markup(*t, file)
+	}
+	*file += "<" + "/term" + ">\n"
+	(*t) = (*t).next
 }
-func compileExpressionList(t **Token, file *string) {
-
+func compileSubCall(t **Token, file *string) {
+	//expressionListが含まれる, )まで処理してそのノードを呼び出し元に返す
+	for {
+		if (*t).word == "(" {
+			*file += "<" + "expressionList" + ">\n"
+			markup(*t, file)
+		} else if (*t).word == ")" {
+			markup(*t, file)
+			*file += "</" + "expressionList" + ">\n"
+			break
+		} else if (*t).word == "." {
+			markup(*t, file)
+			*t = (*t).next
+			compileExpression(t, file)
+		}
+		*t = (*t).next
+	}
 }
 
 //tokenKind: トークンの種類を決定する　(&トークン結果を書き込む)
