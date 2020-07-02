@@ -63,7 +63,7 @@ func Tokenizer(fpath string) {
 	t := head
 	resultcompile := compilationEngine(t) // Tokenは参照渡し
 
-	writeXML(fpath, true, resultcompile)
+	writeXML(fpath, false, resultcompile)
 }
 
 func compilationEngine(t *Token) string { //(*t)でTokenへアクセス
@@ -537,7 +537,7 @@ func writeXML(fpath string, WritingIs bool, output string) {
 
 	if WritingIs {
 		//xmlファイルに出力
-		file, _ := os.Create(pwd + fname + "j.xml")
+		file, _ := os.Create(pwd + fname + "11j.xml")
 		defer file.Close()
 		file.Write(([]byte)(output))
 	}
