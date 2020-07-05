@@ -8,3 +8,11 @@ type Token struct {
 	Next  *Token
 	Tkind string
 }
+
+type ParseVertex struct {
+	Word      string
+	Tkind     string
+	Leaf      bool //終端文字ならtrue
+	ChildNum  int
+	ChildList *[]ParseVertex
+}

@@ -1,4 +1,4 @@
-package compileengine
+package compileEngine
 
 import (
 	"Compiler/typefile"
@@ -18,12 +18,13 @@ func CompilationEngine(t *typefile.Token) string { //(*t)でTokenへアクセス
 		fmt.Println("Error: Not finish code")
 	}
 
-	fmt.Println(f)
+	//fmt.Println(f)
 	return f
 }
 
 func compileClass(t **typefile.Token, file *string) {
 	*file += "<" + "class" + ">\n"
+
 	for {
 		if (*t).Word == "static" || (*t).Word == "field" {
 			compileClassVarDec(t, file) //classVarDecのラストで返す
@@ -33,6 +34,9 @@ func compileClass(t **typefile.Token, file *string) {
 			compileSubroutine(t, file) //subroutineDecのラストで返す
 			(*t) = (*t).Next
 			continue
+		} else if (*t).Tkind == "identifier" { // symbol table
+			fmt.Print("category: class, ")
+			fmt.Println((*t).Word)
 		} else if (*t).Word == "}" {
 			markup(*t, file)
 			*file += "</" + "class" + ">\n"
@@ -49,6 +53,8 @@ func compileClassVarDec(t **typefile.Token, file *string) {
 			markup(*t, file)
 			*file += "</" + "classVarDec" + ">\n"
 			break
+		} else if (*t).Word == "identified" {
+
 		}
 		markup(*t, file)
 		(*t) = (*t).Next

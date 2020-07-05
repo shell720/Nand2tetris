@@ -1,8 +1,7 @@
-package jacktokenizer
+package jackTokenizer
 
 import (
 	"Compiler/typefile"
-	"fmt"
 	"io/ioutil"
 	"os"
 	"strconv"
@@ -30,7 +29,7 @@ func Tokenizer(fpath string) *typefile.Token {
 	var tokenxml string
 	tokenKind(head, &tokenxml)
 
-	fmt.Println(tokenxml)
+	//fmt.Println(tokenxml)
 	return head
 }
 

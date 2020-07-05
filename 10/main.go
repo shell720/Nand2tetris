@@ -1,8 +1,8 @@
 package main
 
 import (
-	compileengine "Compiler/CompileEngine"
-	"Compiler/jacktokenizer"
+	"Compiler/compileEngine"
+	"Compiler/jackTokenizer"
 	"Compiler/typefile"
 	"fmt"
 	"io/ioutil"
@@ -23,21 +23,21 @@ func main() {
 		files, _ := ioutil.ReadDir(argv[1])
 		for _, f := range files {
 			if filepath.Ext(f.Name()) == ".jack" {
-				head := jacktokenizer.Tokenizer(argv[1] + f.Name())
+				head := jackTokenizer.Tokenizer(argv[1] + f.Name())
 				parse(head, argv[1]+f.Name())
 			}
 		}
 	} else {
-		head := jacktokenizer.Tokenizer(argv[1])
+		head := jackTokenizer.Tokenizer(argv[1])
 		parse(head, argv[1])
 	}
 }
 
 func parse(head *typefile.Token, fpath string) {
 	t := head
-	resultcompile := compileengine.CompilationEngine(t)
+	resultcompile := compileEngine.CompilationEngine(t)
 
-	writeXML(fpath, true, resultcompile)
+	writeXML(fpath, false, resultcompile)
 }
 
 //filename: 拡張子なしのファイル名を返す
