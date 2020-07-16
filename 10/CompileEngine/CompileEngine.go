@@ -5,6 +5,19 @@ import (
 	"fmt"
 )
 
+func dfs(tree typefile.ParseVertex) int {
+	if len(tree.ChildList) == 0 {
+		if tree.Word != "" {
+			fmt.Println(tree.Word)
+			return 0
+		}
+	}
+	for _, v := range tree.ChildList {
+		dfs(v)
+	}
+	return 0
+}
+
 //CompilationEngine パーサ結果を返す
 func CompilationEngine(t *typefile.Token) string { //(*t)でTokenへアクセス
 	var ret typefile.ParseVertex
@@ -24,7 +37,8 @@ func CompilationEngine(t *typefile.Token) string { //(*t)でTokenへアクセス
 	}
 	ret.ChildList = childs
 	//fmt.Println(ret.ChildList[0].ChildList[2].T.Word)
-	fmt.Println(ret)
+	dfs(ret)
+	//fmt.Println(ret)
 	return f
 }
 
@@ -44,8 +58,9 @@ func compileClass(t **typefile.Token, file *string) typefile.ParseVertex {
 			childs = append(childs, tmp)
 			continue
 		} else if (*t).Word == "constructor" || (*t).Word == "function" || (*t).Word == "method" {
-			compileSubroutine(t, file) //subroutineDecのラストで返す
+			tmp = compileSubroutine(t, file) //subroutineDecのラストで返す
 			(*t) = (*t).Next
+			childs = append(childs, tmp)
 			continue
 		} else if (*t).Word == "}" {
 			childs = append(childs, tmp)
@@ -66,6 +81,7 @@ func compileClassVarDec(t **typefile.Token, file *string) typefile.ParseVertex {
 	ret.Name = "classVarDec"
 	var childs []typefile.ParseVertex
 	for {
+		ret.ChildNum++
 		var tmp typefile.ParseVertex
 		tmp.Word = (*t).Word
 		tmp.Tkind = (*t).Tkind
@@ -82,20 +98,38 @@ func compileClassVarDec(t **typefile.Token, file *string) typefile.ParseVertex {
 	ret.ChildList = childs
 	return ret
 }
-func compileSubroutine(t **typefile.Token, file *string) {
+func compileSubroutine(t **typefile.Token, file *string) typefile.ParseVertex {
 	*file += "<" + "subroutineDec" + ">\n"
+	var ret typefile.ParseVertex
+	ret.Name = "subroutineDec"
+	var childs []typefile.ParseVertex
 	for {
+		var tmp typefile.ParseVertex
 		if (*t).Word == "(" {
 			markup(*t, file)
+			tmp.Word = (*t).Word
+			tmp.Tkind = (*t).Tkind
+			childs = append(childs, tmp)
 			(*t) = (*t).Next
-			compileParameterList(t, file)
+			res := compileParameterList(t, file)
+			childs = append(childs, res)
+			continue
 		} else if (*t).Word == "{" {
 			*file += "<" + "subroutineBody" + ">\n"
+			var res typefile.ParseVertex
+			res.Name = "subroutineBody"
+			var childs1 []typefile.ParseVertex
+
+			var tmp1 typefile.ParseVertex
+			tmp1.Word = (*t).Word
+			tmp1.Tkind = (*t).Tkind
+			childs1 = append(childs1, tmp1)
 			markup(*t, file)
 			(*t) = (*t).Next
 			for { //varのぶん
 				if (*t).Word == "var" {
-					compileVarDec(t, file)
+					tmp2 := compileVarDec(t, file)
+					childs1 = append(childs1, tmp2)
 				} else {
 					break
 				}
@@ -105,33 +139,62 @@ func compileSubroutine(t **typefile.Token, file *string) {
 				*file += "</" + "statements" + ">\n"
 				continue
 			}
-			compileStatements(t, file)
+			tmp3 := compileStatements(t, file)
+			childs1 = append(childs1, tmp3)
+			res.ChildList = childs1
+			childs = append(childs, res)
 			continue
 		} else if (*t).Word == "}" {
 			markup(*t, file)
+			tmp.Word = (*t).Word
+			tmp.Tkind = (*t).Tkind
+			childs = append(childs, tmp)
 			*file += "</" + "subroutineBody" + ">\n"
 			*file += "</" + "subroutineDec" + ">\n"
 			break
 		}
 		markup(*t, file)
+		tmp.Word = (*t).Word
+		tmp.Tkind = (*t).Tkind
 		(*t) = (*t).Next
+		childs = append(childs, tmp)
 	}
+	ret.ChildList = childs
+	return ret
 }
-func compileParameterList(t **typefile.Token, file *string) {
+func compileParameterList(t **typefile.Token, file *string) typefile.ParseVertex {
 	//()中のみ処理
 	*file += "<" + "parameterList" + ">\n"
+	var ret typefile.ParseVertex
+	ret.Name = "parameterList"
+	var childs []typefile.ParseVertex
 	for {
+		var tmp typefile.ParseVertex
 		if (*t).Word == ")" {
 			*file += "</" + "parameterList" + ">\n"
 			break
 		}
 		markup(*t, file)
+		tmp.Word = (*t).Word
+		tmp.Tkind = (*t).Tkind
+		childs = append(childs, tmp)
+		ret.ChildNum++
 		(*t) = (*t).Next
 	}
+	ret.ChildList = childs
+	return ret
 }
-func compileVarDec(t **typefile.Token, file *string) {
+func compileVarDec(t **typefile.Token, file *string) typefile.ParseVertex {
 	*file += "<" + "varDec" + ">\n"
+	var ret typefile.ParseVertex
+	ret.Name = "varDec"
+	var childs []typefile.ParseVertex
 	for {
+		var tmp typefile.ParseVertex
+		ret.ChildNum++
+		tmp.Word = (*t).Word
+		tmp.Tkind = (*t).Tkind
+		childs = append(childs, tmp)
 		if (*t).Word == ";" {
 			markup(*t, file)
 			*file += "</" + "varDec" + ">\n"
@@ -141,9 +204,14 @@ func compileVarDec(t **typefile.Token, file *string) {
 		markup(*t, file)
 		(*t) = (*t).Next
 	}
+	ret.ChildList = childs
+	return ret
 }
-func compileStatements(t **typefile.Token, file *string) {
+func compileStatements(t **typefile.Token, file *string) typefile.ParseVertex {
 	*file += "<" + "statements" + ">\n"
+	var ret typefile.ParseVertex
+	ret.Name = "statements"
+	var childs []typefile.ParseVertex
 	for { //再帰から戻ってくる時はそれぞれのステートメントの末尾の次のトークンで帰ってくること
 		if (*t).Word == "let" {
 			compileLet(t, file)
@@ -160,6 +228,8 @@ func compileStatements(t **typefile.Token, file *string) {
 			break
 		}
 	}
+	ret.ChildList = childs
+	return ret
 }
 func compileDo(t **typefile.Token, file *string) {
 	*file += "<" + "doStatement" + ">\n"
