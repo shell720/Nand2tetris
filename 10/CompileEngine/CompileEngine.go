@@ -7,9 +7,14 @@ import (
 
 //CompilationEngine パーサ結果を返す
 func CompilationEngine(t *typefile.Token) string { //(*t)でTokenへアクセス
+	var ret typefile.ParseVertex
 	var f string
+	ret.Name = "HEAD"
+	var childs []typefile.ParseVertex
 	if t.Word == "class" {
-		compileClass(&t, &f)
+		res := compileClass(&t, &f)
+		//fmt.Println(res)
+		childs = append(childs, res)
 	} else {
 		fmt.Println("Error: Not start with class")
 	}
@@ -17,48 +22,65 @@ func CompilationEngine(t *typefile.Token) string { //(*t)でTokenへアクセス
 	if t.Next != nil {
 		fmt.Println("Error: Not finish code")
 	}
-
-	//fmt.Println(f)
+	ret.ChildList = childs
+	//fmt.Println(ret.ChildList[0].ChildList[2].T.Word)
+	fmt.Println(ret)
 	return f
 }
 
-func compileClass(t **typefile.Token, file *string) {
+func compileClass(t **typefile.Token, file *string) typefile.ParseVertex {
 	*file += "<" + "class" + ">\n"
-
+	var ret typefile.ParseVertex
+	ret.Name = "class"
+	var childs []typefile.ParseVertex
 	for {
+		var tmp typefile.ParseVertex
+		tmp.Word = (*t).Word
+		tmp.Tkind = (*t).Tkind
+		ret.ChildNum++
 		if (*t).Word == "static" || (*t).Word == "field" {
-			compileClassVarDec(t, file) //classVarDecのラストで返す
+			tmp = compileClassVarDec(t, file) //classVarDecのラストで返す
 			(*t) = (*t).Next
+			childs = append(childs, tmp)
 			continue
 		} else if (*t).Word == "constructor" || (*t).Word == "function" || (*t).Word == "method" {
 			compileSubroutine(t, file) //subroutineDecのラストで返す
 			(*t) = (*t).Next
 			continue
-		} else if (*t).Tkind == "identifier" { // symbol table
-			fmt.Print("category: class, ")
-			fmt.Println((*t).Word)
 		} else if (*t).Word == "}" {
+			childs = append(childs, tmp)
 			markup(*t, file)
 			*file += "</" + "class" + ">\n"
 			break
 		}
 		markup(*t, file)
 		(*t) = (*t).Next
+		childs = append(childs, tmp)
 	}
+	ret.ChildList = childs
+	return ret
 }
-func compileClassVarDec(t **typefile.Token, file *string) {
+func compileClassVarDec(t **typefile.Token, file *string) typefile.ParseVertex {
 	*file += "<" + "classVarDec" + ">\n"
+	var ret typefile.ParseVertex
+	ret.Name = "classVarDec"
+	var childs []typefile.ParseVertex
 	for {
+		var tmp typefile.ParseVertex
+		tmp.Word = (*t).Word
+		tmp.Tkind = (*t).Tkind
 		if (*t).Word == ";" {
 			markup(*t, file)
+			childs = append(childs, tmp)
 			*file += "</" + "classVarDec" + ">\n"
 			break
-		} else if (*t).Word == "identified" {
-
 		}
 		markup(*t, file)
 		(*t) = (*t).Next
+		childs = append(childs, tmp)
 	}
+	ret.ChildList = childs
+	return ret
 }
 func compileSubroutine(t **typefile.Token, file *string) {
 	*file += "<" + "subroutineDec" + ">\n"

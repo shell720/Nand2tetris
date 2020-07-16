@@ -12,7 +12,7 @@ type Token struct {
 type ParseVertex struct {
 	Word      string
 	Tkind     string
-	Leaf      bool //終端文字ならtrue
-	ChildNum  int
-	ChildList *[]ParseVertex
+	Name      string //そのノードの名前
+	ChildNum  int    //終端文字なら0
+	ChildList []ParseVertex
 }
