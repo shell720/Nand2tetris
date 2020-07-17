@@ -38,7 +38,7 @@ func CompilationEngine(t *typefile.Token) string { //(*t)でTokenへアクセス
 	ret.ChildList = childs
 	//fmt.Println(ret.ChildList[0].ChildList[2].T.Word)
 	dfs(ret)
-	//fmt.Println(ret)
+	fmt.Println(ret)
 	return f
 }
 
