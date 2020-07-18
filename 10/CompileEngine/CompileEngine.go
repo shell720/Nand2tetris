@@ -5,21 +5,8 @@ import (
 	"fmt"
 )
 
-func dfs(tree typefile.ParseVertex) int {
-	if len(tree.ChildList) == 0 {
-		if tree.Word != "" {
-			fmt.Println(tree.Word)
-			return 0
-		}
-	}
-	for _, v := range tree.ChildList {
-		dfs(v)
-	}
-	return 0
-}
-
 //CompilationEngine パーサ結果を返す
-func CompilationEngine(t *typefile.Token) string { //(*t)でTokenへアクセス
+func CompilationEngine(t *typefile.Token) typefile.ParseVertex { //(*t)でTokenへアクセス
 	var ret typefile.ParseVertex
 	var f string
 	ret.Name = "HEAD"
@@ -36,10 +23,8 @@ func CompilationEngine(t *typefile.Token) string { //(*t)でTokenへアクセス
 		fmt.Println("Error: Not finish code")
 	}
 	ret.ChildList = childs
-	//fmt.Println(ret.ChildList[0].ChildList[2].T.Word)
-	dfs(ret)
-	fmt.Println(ret)
-	return f
+	//fmt.Println(ret)
+	return ret
 }
 
 func compileClass(t **typefile.Token, file *string) typefile.ParseVertex {
@@ -64,11 +49,9 @@ func compileClass(t **typefile.Token, file *string) typefile.ParseVertex {
 			continue
 		} else if (*t).Word == "}" {
 			childs = append(childs, tmp)
-			markup(*t, file)
 			*file += "</" + "class" + ">\n"
 			break
 		}
-		markup(*t, file)
 		(*t) = (*t).Next
 		childs = append(childs, tmp)
 	}
@@ -86,12 +69,10 @@ func compileClassVarDec(t **typefile.Token, file *string) typefile.ParseVertex {
 		tmp.Word = (*t).Word
 		tmp.Tkind = (*t).Tkind
 		if (*t).Word == ";" {
-			markup(*t, file)
 			childs = append(childs, tmp)
 			*file += "</" + "classVarDec" + ">\n"
 			break
 		}
-		markup(*t, file)
 		(*t) = (*t).Next
 		childs = append(childs, tmp)
 	}
@@ -103,33 +84,34 @@ func compileSubroutine(t **typefile.Token, file *string) typefile.ParseVertex {
 	var ret typefile.ParseVertex
 	ret.Name = "subroutineDec"
 	var childs []typefile.ParseVertex
+	var res typefile.ParseVertex
+	res.Name = "subroutineBody"
+	var subchilds []typefile.ParseVertex
 	for {
 		var tmp typefile.ParseVertex
 		if (*t).Word == "(" {
-			markup(*t, file)
 			tmp.Word = (*t).Word
 			tmp.Tkind = (*t).Tkind
 			childs = append(childs, tmp)
+			ret.ChildNum++
 			(*t) = (*t).Next
 			res := compileParameterList(t, file)
 			childs = append(childs, res)
+			ret.ChildNum++
 			continue
 		} else if (*t).Word == "{" {
 			*file += "<" + "subroutineBody" + ">\n"
-			var res typefile.ParseVertex
-			res.Name = "subroutineBody"
-			var childs1 []typefile.ParseVertex
-
-			var tmp1 typefile.ParseVertex
-			tmp1.Word = (*t).Word
-			tmp1.Tkind = (*t).Tkind
-			childs1 = append(childs1, tmp1)
-			markup(*t, file)
+			ret.ChildNum++
+			tmp.Word = (*t).Word
+			tmp.Tkind = (*t).Tkind
+			subchilds = append(subchilds, tmp)
+			res.ChildNum++
 			(*t) = (*t).Next
 			for { //varのぶん
 				if (*t).Word == "var" {
-					tmp2 := compileVarDec(t, file)
-					childs1 = append(childs1, tmp2)
+					res.ChildNum++
+					tmp1 := compileVarDec(t, file)
+					subchilds = append(subchilds, tmp1)
 				} else {
 					break
 				}
@@ -137,25 +119,28 @@ func compileSubroutine(t **typefile.Token, file *string) typefile.ParseVertex {
 			if (*t).Word == "}" { // もしstatementが０個
 				*file += "<" + "statements" + ">\n"
 				*file += "</" + "statements" + ">\n"
+				var tmp typefile.ParseVertex
+				tmp.Name = "statements"
+				subchilds = append(subchilds, tmp)
 				continue
 			}
-			tmp3 := compileStatements(t, file)
-			childs1 = append(childs1, tmp3)
-			res.ChildList = childs1
-			childs = append(childs, res)
+			tmp2 := compileStatements(t, file)
+			subchilds = append(subchilds, tmp2)
+			res.ChildNum++
 			continue
 		} else if (*t).Word == "}" {
-			markup(*t, file)
 			tmp.Word = (*t).Word
 			tmp.Tkind = (*t).Tkind
-			childs = append(childs, tmp)
+			subchilds = append(subchilds, tmp)
 			*file += "</" + "subroutineBody" + ">\n"
 			*file += "</" + "subroutineDec" + ">\n"
+			res.ChildList = subchilds
+			childs = append(childs, res)
 			break
 		}
-		markup(*t, file)
 		tmp.Word = (*t).Word
 		tmp.Tkind = (*t).Tkind
+		ret.ChildNum++
 		(*t) = (*t).Next
 		childs = append(childs, tmp)
 	}
@@ -174,7 +159,6 @@ func compileParameterList(t **typefile.Token, file *string) typefile.ParseVertex
 			*file += "</" + "parameterList" + ">\n"
 			break
 		}
-		markup(*t, file)
 		tmp.Word = (*t).Word
 		tmp.Tkind = (*t).Tkind
 		childs = append(childs, tmp)
@@ -196,12 +180,10 @@ func compileVarDec(t **typefile.Token, file *string) typefile.ParseVertex {
 		tmp.Tkind = (*t).Tkind
 		childs = append(childs, tmp)
 		if (*t).Word == ";" {
-			markup(*t, file)
 			*file += "</" + "varDec" + ">\n"
 			(*t) = (*t).Next
 			break
 		}
-		markup(*t, file)
 		(*t) = (*t).Next
 	}
 	ret.ChildList = childs
@@ -213,106 +195,180 @@ func compileStatements(t **typefile.Token, file *string) typefile.ParseVertex {
 	ret.Name = "statements"
 	var childs []typefile.ParseVertex
 	for { //再帰から戻ってくる時はそれぞれのステートメントの末尾の次のトークンで帰ってくること
+		var tmp typefile.ParseVertex
 		if (*t).Word == "let" {
-			compileLet(t, file)
+			tmp = compileLet(t, file)
 		} else if (*t).Word == "if" {
-			compileIf(t, file)
+			tmp = compileIf(t, file)
 		} else if (*t).Word == "while" {
-			compileWhile(t, file)
+			tmp = compileWhile(t, file)
 		} else if (*t).Word == "do" {
-			compileDo(t, file)
+			tmp = compileDo(t, file)
 		} else if (*t).Word == "return" {
-			compileReturn(t, file)
+			tmp = compileReturn(t, file)
 		} else if (*t).Word == "}" {
 			*file += "</" + "statements" + ">\n"
 			break
 		}
+		childs = append(childs, tmp)
 	}
 	ret.ChildList = childs
 	return ret
 }
-func compileDo(t **typefile.Token, file *string) {
+func compileDo(t **typefile.Token, file *string) typefile.ParseVertex {
 	*file += "<" + "doStatement" + ">\n"
-	markup(*t, file)
+	var ret typefile.ParseVertex
+	ret.Name = "doStatement"
+	var childs []typefile.ParseVertex
+	var tmp typefile.ParseVertex
+	tmp.Word = (*t).Word
+	tmp.Tkind = (*t).Tkind
+	childs = append(childs, tmp)
 	*t = (*t).Next
-	compileSubCall(t, file)
+	tmp1 := compileSubCall(t, file)
+	childs = append(childs, tmp1)
 	*t = (*t).Next
-	markup(*t, file)
+	tmp.Word = (*t).Word
+	tmp.Tkind = (*t).Tkind
+	childs = append(childs, tmp)
 	*file += "</" + "doStatement" + ">\n"
 	*t = (*t).Next
-
+	ret.ChildList = childs
+	return ret
 }
-func compileLet(t **typefile.Token, file *string) {
+func compileLet(t **typefile.Token, file *string) typefile.ParseVertex {
 	*file += "<" + "letStatement" + ">\n"
+	var ret typefile.ParseVertex
+	ret.Name = "letStatement"
+	var childs []typefile.ParseVertex
 	for {
+		var tmp typefile.ParseVertex
+		tmp.Word = (*t).Word
+		tmp.Tkind = (*t).Tkind
+		childs = append(childs, tmp)
 		if (*t).Word == "[" {
-			markup(*t, file)
 			(*t) = (*t).Next
-			compileExpression(t, file)
+			tmp1 := compileExpression(t, file)
+			childs = append(childs, tmp1)
+			continue
 		} else if (*t).Word == "=" {
-			markup(*t, file)
 			(*t) = (*t).Next
-			compileExpression(t, file)
-			markup(*t, file)
+			tmp2 := compileExpression(t, file)
+			childs = append(childs, tmp2)
+			tmp.Word = (*t).Word
+			tmp.Tkind = (*t).Tkind
+			childs = append(childs, tmp)
 			break
 		}
-
-		markup(*t, file)
 		(*t) = (*t).Next
 	}
 	*file += "</" + "letStatement" + ">\n"
 	(*t) = (*t).Next
-
+	ret.ChildList = childs
+	return ret
 }
-func compileWhile(t **typefile.Token, file *string) {
+func compileWhile(t **typefile.Token, file *string) typefile.ParseVertex {
 	*file += "<" + "whileStatement" + ">\n"
-	markup(*t, file)
+	var ret typefile.ParseVertex
+	ret.Name = "whileStatement"
+	var childs []typefile.ParseVertex
+	var tmp typefile.ParseVertex
+	tmp.Word = (*t).Word
+	tmp.Tkind = (*t).Tkind
+	childs = append(childs, tmp)
 	(*t) = (*t).Next
-	markup(*t, file)
+	tmp.Word = (*t).Word
+	tmp.Tkind = (*t).Tkind
+	childs = append(childs, tmp)
 	(*t) = (*t).Next
-	compileExpression(t, file)
-	markup(*t, file) //)
+	tmp1 := compileExpression(t, file)
+	childs = append(childs, tmp1)
+	tmp.Word = (*t).Word
+	tmp.Tkind = (*t).Tkind
+	childs = append(childs, tmp)
 	(*t) = (*t).Next
-	markup(*t, file)
+	tmp.Word = (*t).Word
+	tmp.Tkind = (*t).Tkind
+	childs = append(childs, tmp)
 	(*t) = (*t).Next
-	compileStatements(t, file)
-	markup(*t, file)
+	tmp2 := compileStatements(t, file)
+	childs = append(childs, tmp2)
+	tmp.Word = (*t).Word
+	tmp.Tkind = (*t).Tkind
+	childs = append(childs, tmp)
 	*file += "</" + "whileStatement" + ">\n"
 	(*t) = (*t).Next
+	ret.ChildList = childs
+	return ret
 }
-func compileReturn(t **typefile.Token, file *string) {
+func compileReturn(t **typefile.Token, file *string) typefile.ParseVertex {
 	*file += "<" + "returnStatement" + ">\n"
-	markup(*t, file)
+	var ret typefile.ParseVertex
+	ret.Name = "returnStatement"
+	var childs []typefile.ParseVertex
+	var tmp typefile.ParseVertex
+	tmp.Word = (*t).Word
+	tmp.Tkind = (*t).Tkind
+	childs = append(childs, tmp)
 	(*t) = (*t).Next
 	if (*t).Word != ";" {
-		compileExpression(t, file)
+		tmp1 := compileExpression(t, file)
+		childs = append(childs, tmp1)
 	}
-	markup(*t, file)
+	tmp.Word = (*t).Word
+	tmp.Tkind = (*t).Tkind
+	childs = append(childs, tmp)
 	*file += "</" + "returnStatement" + ">\n"
 	(*t) = (*t).Next
+	ret.ChildList = childs
+	return ret
 }
-func compileIf(t **typefile.Token, file *string) {
+func compileIf(t **typefile.Token, file *string) typefile.ParseVertex {
 	*file += "<" + "ifStatement" + ">\n"
-	markup(*t, file)
+	var ret typefile.ParseVertex
+	ret.Name = "ifStatement"
+	var childs []typefile.ParseVertex
+	var tmp typefile.ParseVertex
+	tmp.Word = (*t).Word
+	tmp.Tkind = (*t).Tkind
+	childs = append(childs, tmp)
 	(*t) = (*t).Next
-	markup(*t, file)
+	tmp.Word = (*t).Word
+	tmp.Tkind = (*t).Tkind
+	childs = append(childs, tmp)
 	(*t) = (*t).Next
-	compileExpression(t, file)
-	markup(*t, file) // )
+	tmp1 := compileExpression(t, file)
+	childs = append(childs, tmp1)
+	tmp.Word = (*t).Word
+	tmp.Tkind = (*t).Tkind
+	childs = append(childs, tmp)
 	(*t) = (*t).Next
-	markup(*t, file)
+	tmp.Word = (*t).Word
+	tmp.Tkind = (*t).Tkind
+	childs = append(childs, tmp)
 	(*t) = (*t).Next
-	compileStatements(t, file)
-	markup(*t, file)
+	tmp2 := compileStatements(t, file)
+	childs = append(childs, tmp2)
+	tmp.Word = (*t).Word
+	tmp.Tkind = (*t).Tkind
+	childs = append(childs, tmp)
 	(*t) = (*t).Next
 	for {
+		var tmps typefile.ParseVertex
 		if (*t).Word == "else" {
-			markup(*t, file)
+			tmps.Word = (*t).Word
+			tmps.Tkind = (*t).Tkind
+			childs = append(childs, tmps)
 			(*t) = (*t).Next
-			markup(*t, file)
+			tmps.Word = (*t).Word
+			tmps.Tkind = (*t).Tkind
+			childs = append(childs, tmps)
 			(*t) = (*t).Next
-			compileStatements(t, file)
-			markup(*t, file)
+			tmp3 := compileStatements(t, file)
+			childs = append(childs, tmp3)
+			tmps.Word = (*t).Word
+			tmps.Tkind = (*t).Tkind
+			childs = append(childs, tmps)
 			(*t) = (*t).Next
 			continue
 		} else {
@@ -320,88 +376,140 @@ func compileIf(t **typefile.Token, file *string) {
 		}
 	}
 	*file += "</" + "ifStatement" + ">\n"
-
+	ret.ChildList = childs
+	return ret
 }
-func compileExpression(t **typefile.Token, file *string) {
+func compileExpression(t **typefile.Token, file *string) typefile.ParseVertex {
 	op := []string{"+", "-", "*", "/", "&", "|", "<", ">", "="}
 	*file += "<" + "expression" + ">\n"
-	compileTerm(t, file) //帰ってきた時に次のトークンがopなら続ける
+	var ret typefile.ParseVertex
+	ret.Name = "expression"
+	var childs []typefile.ParseVertex
+	tmp1 := compileTerm(t, file) //帰ってきた時に次のトークンがopなら続ける
+	childs = append(childs, tmp1)
 	(*t) = (*t).Next
 	for {
+		var tmp typefile.ParseVertex
 		if search(op, (*t).Word) {
-			markup(*t, file)
+			tmp.Word = (*t).Word
+			tmp.Tkind = (*t).Tkind
+			childs = append(childs, tmp)
 			(*t) = (*t).Next
-			compileTerm(t, file)
+			tmp2 := compileTerm(t, file)
+			childs = append(childs, tmp2)
 			(*t) = (*t).Next
 		} else {
 			break
 		}
 	}
 	*file += "</" + "expression" + ">\n"
+	ret.ChildList = childs
+	return ret
 }
-func compileTerm(t **typefile.Token, file *string) {
+func compileTerm(t **typefile.Token, file *string) typefile.ParseVertex {
 	*file += "<" + "term" + ">\n"
+	var ret typefile.ParseVertex
+	ret.Name = "term"
+	var childs []typefile.ParseVertex
+	var tmp typefile.ParseVertex
 	if (*t).Tkind == "identifier" {
 		if ((*t).Next).Word == "(" {
-			compileSubCall(t, file)
+			tmp1 := compileSubCall(t, file)
+			childs = append(childs, tmp1)
 		} else if ((*t).Next).Word == "." {
-			compileSubCall(t, file)
+			tmp1 := compileSubCall(t, file)
+			childs = append(childs, tmp1)
 		} else if ((*t).Next).Word == "[" {
-			markup(*t, file)
+			tmp.Word = (*t).Word
+			tmp.Tkind = (*t).Tkind
+			childs = append(childs, tmp)
 			(*t) = (*t).Next
-			markup(*t, file)
+			tmp.Word = (*t).Word
+			tmp.Tkind = (*t).Tkind
+			childs = append(childs, tmp)
 			(*t) = (*t).Next
-			compileExpression(t, file)
-			markup(*t, file)
+			tmp1 := compileExpression(t, file)
+			childs = append(childs, tmp1)
+			tmp.Word = (*t).Word
+			tmp.Tkind = (*t).Tkind
+			childs = append(childs, tmp)
 		} else {
-			markup(*t, file)
+			tmp.Word = (*t).Word
+			tmp.Tkind = (*t).Tkind
+			childs = append(childs, tmp)
 		}
 	} else if (*t).Word == "(" {
-		markup(*t, file)
+		tmp.Word = (*t).Word
+		tmp.Tkind = (*t).Tkind
+		childs = append(childs, tmp)
 		(*t) = (*t).Next
-		compileExpression(t, file)
-		markup(*t, file)
+		tmp1 := compileExpression(t, file)
+		childs = append(childs, tmp1)
+		tmp.Word = (*t).Word
+		tmp.Tkind = (*t).Tkind
+		childs = append(childs, tmp)
 	} else if (*t).Word == "-" || (*t).Word == "~" {
-		markup(*t, file)
+		tmp.Word = (*t).Word
+		tmp.Tkind = (*t).Tkind
+		childs = append(childs, tmp)
 		(*t) = (*t).Next
-		compileTerm(t, file)
+		tmp1 := compileTerm(t, file)
+		childs = append(childs, tmp1)
 	} else {
-		markup(*t, file)
+		tmp.Word = (*t).Word
+		tmp.Tkind = (*t).Tkind
+		childs = append(childs, tmp)
 	}
 	*file += "<" + "/term" + ">\n"
+	ret.ChildList = childs
+	return ret
 }
-func compileSubCall(t **typefile.Token, file *string) {
+func compileSubCall(t **typefile.Token, file *string) typefile.ParseVertex {
 	//expressionListが含まれる, )まで処理してそのノードを呼び出し元に返す
+	var ret typefile.ParseVertex
+	var childs []typefile.ParseVertex
+	var res typefile.ParseVertex
+	res.Name = "expressionList"
+	var subchilds []typefile.ParseVertex
 	for {
+		var tmp typefile.ParseVertex
 		if (*t).Word == "(" {
-			markup(*t, file)
+			tmp.Word = (*t).Word
+			tmp.Tkind = (*t).Tkind
+			childs = append(childs, tmp)
 			*file += "<" + "expressionList" + ">\n"
 			*t = (*t).Next
 			if (*t).Word == ")" {
 				continue
 			}
-			compileExpression(t, file)
+			tmp1 := compileExpression(t, file)
+			subchilds = append(subchilds, tmp1)
 			continue
 		} else if (*t).Word == ")" {
 			*file += "</" + "expressionList" + ">\n"
-			markup(*t, file)
+			res.ChildList = subchilds
+			childs = append(childs, res)
+			tmp.Word = (*t).Word
+			tmp.Tkind = (*t).Tkind
+			childs = append(childs, tmp)
 			break
 		} else if (*t).Word == "," {
-			markup(*t, file)
+			tmp.Word = (*t).Word
+			tmp.Tkind = (*t).Tkind
+			subchilds = append(subchilds, tmp)
 			*t = (*t).Next
-			compileExpression(t, file)
+			tmp1 := compileExpression(t, file)
+			subchilds = append(subchilds, tmp1)
 			continue
 		} else {
-			markup(*t, file)
+			tmp.Word = (*t).Word
+			tmp.Tkind = (*t).Tkind
+			childs = append(childs, tmp)
 		}
 		*t = (*t).Next
 	}
-}
-
-func markup(t *typefile.Token, file *string) {
-	*file += "<" + t.Tkind + "> "
-	*file += outputTerminal(t.Word)
-	*file += " </" + t.Tkind + ">\n"
+	ret.ChildList = childs
+	return ret
 }
 
 //search: charで与えられた文字がarrayの要素かどうか調べる
@@ -413,21 +521,4 @@ func search(array []string, char string) bool {
 		}
 	}
 	return check
-}
-
-//outputTerminal: 終端文字の細かい変化
-func outputTerminal(s string) string {
-	var t string
-	if s[0] == 34 {
-		t = s[1 : len(s)-1]
-	} else if s == "<" {
-		t = "&lt;"
-	} else if s == ">" {
-		t = "&gt;"
-	} else if s == "&" {
-		t = "&amp;"
-	} else {
-		t = s
-	}
-	return t
 }
