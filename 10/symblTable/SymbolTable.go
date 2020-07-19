@@ -1,0 +1,5 @@
+package symblTable
+
+func Symbol() {
+	
+}

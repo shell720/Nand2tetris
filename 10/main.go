@@ -3,32 +3,13 @@ package main
 import (
 	"Compiler/compileEngine"
 	"Compiler/jackTokenizer"
+	"Compiler/symbolTable"
 	"Compiler/typefile"
 	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 )
-
-func dfs(tree typefile.ParseVertex, file *string) {
-	if tree.Name != "" && tree.Name != "HEAD" {
-		*file += "<" + tree.Name + ">\n"
-	}
-	if len(tree.ChildList) == 0 {
-		if tree.Word != "" {
-			markup(tree, file)
-			if tree.Tkind == "identifier" {
-				fmt.Println(tree.Word)
-			}
-		}
-	}
-	for _, v := range tree.ChildList {
-		dfs(v, file)
-	}
-	if tree.Name != "" && tree.Name != "HEAD" {
-		*file += "</" + tree.Name + ">\n"
-	}
-}
 
 func main() {
 	argv := os.Args
@@ -58,9 +39,11 @@ func parse(head *typefile.Token, fpath string) {
 	parser := compileEngine.CompilationEngine(t)
 
 	var result string
-	dfs(parser, &result)
+	var classSymTable map[string]typefile.TableValue
+	var subrouSymTable map[string]typefile.TableValue
+	symbolTable.DFS(parser, &result, parser, -1, classSymTable, subrouSymTable)
 	//fmt.Println(result)
-	writeXML(fpath, false, result)
+	writeXML(fpath, true, result)
 }
 
 //filename: 拡張子なしのファイル名を返す
@@ -89,27 +72,4 @@ func writeXML(fpath string, WritingIs bool, output string) {
 		defer file.Close()
 		file.Write(([]byte)(output))
 	}
-}
-
-func markup(t typefile.ParseVertex, file *string) {
-	*file += "<" + t.Tkind + "> "
-	*file += outputTerminal(t.Word)
-	*file += " </" + t.Tkind + ">\n"
-}
-
-//outputTerminal: 終端文字の細かい変化
-func outputTerminal(s string) string {
-	var t string
-	if s[0] == 34 {
-		t = s[1 : len(s)-1]
-	} else if s == "<" {
-		t = "&lt;"
-	} else if s == ">" {
-		t = "&gt;"
-	} else if s == "&" {
-		t = "&amp;"
-	} else {
-		t = s
-	}
-	return t
 }

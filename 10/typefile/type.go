@@ -16,3 +16,9 @@ type ParseVertex struct {
 	ChildNum  int    //終端文字なら0
 	ChildList []ParseVertex
 }
+
+type TableValue struct {
+	Type   string
+	status string
+	num    int
+}

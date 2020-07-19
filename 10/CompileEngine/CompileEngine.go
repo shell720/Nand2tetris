@@ -467,6 +467,7 @@ func compileTerm(t **typefile.Token, file *string) typefile.ParseVertex {
 func compileSubCall(t **typefile.Token, file *string) typefile.ParseVertex {
 	//expressionListが含まれる, )まで処理してそのノードを呼び出し元に返す
 	var ret typefile.ParseVertex
+	ret.Name = "subCall"
 	var childs []typefile.ParseVertex
 	var res typefile.ParseVertex
 	res.Name = "expressionList"
