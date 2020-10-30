@@ -17,5 +17,5 @@ create program of VM language(Intermediate code) to assembly by Python3
 
 ## section 10,11
 creating program of compiler by go  
-***goによるコンパイラの作成中 パーサまで完成  
+***goによるコンパイラの作成 パーサ  
 go.modについて: go.modのあるファイルから探してimportされるようになる仕組み, 複数ファイルにまたがるもの(structなど)はそれ用のファイルを作成しimportするようにする  
