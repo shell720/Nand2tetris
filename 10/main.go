@@ -3,8 +3,9 @@ package main
 import (
 	"Compiler/compileEngine"
 	"Compiler/jackTokenizer"
-	"Compiler/symbolTable"
 	"Compiler/typefile"
+	"Compiler/vmWriter"
+	xmlEncoder "Compiler/xmlWriter"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -36,14 +37,14 @@ func main() {
 
 func parse(head *typefile.Token, fpath string) {
 	t := head
-	parser := compileEngine.CompilationEngine(t)
+	parser := compileEngine.CompilationEngine(t) //木構造ぽくなってる
+	//fmt.Println(parser)
 
-	var result string
-	var classSymTable map[string]typefile.TableValue
-	var subrouSymTable map[string]typefile.TableValue
-	symbolTable.DFS(parser, &result, parser, -1, classSymTable, subrouSymTable)
+	var result10, result11 string
+	xmlEncoder.DFS(parser, &result10, parser, -1) //10章用
+	vmWriter.DFS(parser, &result11, parser, -1)   //11章用
 	//fmt.Println(result)
-	writeXML(fpath, true, result)
+	writeXML(fpath, true, result10)
 }
 
 //filename: 拡張子なしのファイル名を返す

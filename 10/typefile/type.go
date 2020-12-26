@@ -18,7 +18,7 @@ type ParseVertex struct {
 }
 
 type TableValue struct {
-	Type   string
-	status string
-	num    int
+	Type string
+	Attr string
+	No   int
 }
