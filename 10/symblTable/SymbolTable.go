@@ -1,5 +1,0 @@
-package symblTable
-
-func Symbol() {
-	
-}
